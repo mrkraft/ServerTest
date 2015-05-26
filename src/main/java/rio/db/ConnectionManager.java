@@ -1,27 +1,50 @@
 package rio.db;
 
-import com.couchbase.client.CouchbaseClient;
+import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.Session;
+import rio.util.Prop;
 
-import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
-
+/**
+ * This class contains initial DB configuration
+ */
 public class ConnectionManager {
 
-    private static CouchbaseClient client;
+    private static volatile Cluster cluster;
+    private static volatile Session session;
 
-    public static synchronized CouchbaseClient getClientInstance() {
-        if (client == null) {
-            List<URI> uris = new ArrayList<URI>();
-            uris.add(URI.create("http://127.0.0.1:8091/pools"));
+    private ConnectionManager() {
+    }
 
-            try {
-                client = new CouchbaseClient(uris, "default", "");
-            } catch (Exception e) {
-                System.err.println("Error connecting to Couchbase: " + e.getMessage());
-                System.exit(0);
+    /**
+     * Create cluster connection and db working session
+     *
+     * @return cluster session
+     */
+    public static Session getSessionInstance() {
+        if (cluster == null) {
+            synchronized (ConnectionManager.class) {
+                String address = Prop.getProp("db.cassandra.address");
+                cluster = Cluster.builder().addContactPoint(address).build();
+                session = cluster.connect();
+                initDb(session);
             }
         }
-        return client;
+        return session;
+    }
+
+    /**
+     * For testing purpose only.
+     * Method creates keyspace and table
+     *
+     * @param session
+     */
+    private static void initDb(Session session) {
+        String keyspace = Prop.getProp("db.cassandra.keyspace");
+        session.execute("CREATE KEYSPACE IF NOT EXISTS " + keyspace + " WITH replication " + "= {'class':'SimpleStrategy', 'replication_factor':3};");
+        session.execute(
+                "CREATE TABLE IF NOT EXISTS testdata.ping (" +
+                        "userId text PRIMARY KEY," +
+                        "requestCount int" +
+                        ");");
     }
 }

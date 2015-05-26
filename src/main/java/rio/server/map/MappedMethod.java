@@ -5,8 +5,11 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-@Target(value= ElementType.METHOD)
-@Retention(value= RetentionPolicy.RUNTIME)
+/**
+ * Handler method annotation
+ */
+@Target(value = ElementType.METHOD)
+@Retention(value = RetentionPolicy.RUNTIME)
 public @interface MappedMethod {
     String type();
 }

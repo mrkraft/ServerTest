@@ -1,50 +1,63 @@
 package rio.server;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.twitter.finagle.Service;
 import com.twitter.util.Future;
-import rio.db.entity.RequestJSONEntity;
-import rio.server.handler.UriHandlerBased;
-import rio.server.map.Mapped;
-import rio.server.map.util.HandlerSearchTool;
 import org.jboss.netty.handler.codec.http.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import rio.server.data.RequestEntity;
+import rio.server.map.util.HandlerSearchTool;
+import rio.server.util.HandlerPait;
+import rio.server.util.JSONConverter;
 
-import java.io.IOException;
-import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * This class contains methods, that handle server requests.
+ */
 public class RequestHandler extends Service {
 
-    private Map<String, Method> handlers = new HashMap<String, Method>();
+    private static final Logger logger = LoggerFactory.getLogger(RequestHandler.class);
+
+    //Handlers map, that correspond to: uri, request type, request content type
+    private Map<String, HandlerPait> handlers = new HashMap<String, HandlerPait>();
 
     public RequestHandler() {
         super();
         handlers = HandlerSearchTool.getHandlerMethods("rio.server");
     }
 
+    /**
+     * Initial method for request handling
+     */
     @Override
     public Future apply(Object req) {
-        HttpRequest request = (HttpRequest)req;
-        RequestJSONEntity requestEntity = getEntityByJSON(request);
+        //Get request
+        HttpRequest request = (HttpRequest) req;
+        RequestEntity requestEntity = getEntityByJSON(request);
 
+        //Get handler name, that consist of uri ('/handler'), request type (POST), request content type (PING)
         QueryStringDecoder queryStringDecoder = new QueryStringDecoder(request.getUri());
         String context = queryStringDecoder.getPath();
-        String fullContext = context + "/" + request.getMethod().getName() + "/" + requestEntity.getType();
-        Method handler = handlers.get(fullContext);
+        String fullContext = context + "/" + request.getMethod().getName() + "/" + requestEntity.getTypeName();
+        HandlerPait handler = handlers.get(fullContext);
 
+        //Invoke handler and get response
         HttpResponse response = null;
         if (handler != null) {
             response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
 
             try {
-                handler.invoke(request, response);
+                Method method = handler.getMethod();
+                method.invoke(handler.getClassObject(), requestEntity, response);
             } catch (IllegalAccessException e) {
-                e.printStackTrace();
+                logger.error(e.getMessage());
             } catch (InvocationTargetException e) {
-                e.printStackTrace();
+                logger.error(e.getMessage());
             }
         } else {
             response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.BAD_REQUEST);
@@ -53,16 +66,16 @@ public class RequestHandler extends Service {
         return Future.value(response);
     }
 
-    private RequestJSONEntity getEntityByJSON(HttpRequest request) {
-        RequestJSONEntity result = null;
-
-        String content = "{\"type\":\"PING\",\"arguments\":{\"userId\":\"1e7b05a0-0285-48ea-885e-5cc3b56fe05f\"}}";     //request.getContent().toString(Charset.forName("UTF-8"));
-        ObjectMapper objectMapper = new ObjectMapper();
-        try {
-            result = objectMapper.readValue(content, RequestJSONEntity.class);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    /**
+     * Create object from request JSON content
+     *
+     * @param request HttpRequest
+     * @return  object (RequestEntity), that represent request content
+     */
+    private RequestEntity getEntityByJSON(HttpRequest request) {
+        RequestEntity result = null;
+        String content = request.getContent().toString(Charset.forName("UTF-8"));
+        result = new RequestEntity(JSONConverter.getMap(content));
 
         return result;
     }
