@@ -35,6 +35,10 @@ public class PingRequestHandler extends UriHandlerBased {
         response.setContent(ChannelBuffers.copiedBuffer(responseContent, Charset.forName("UTF-8")));
     }
 
+    /**
+     * For testing purpose only.
+     * Receive request from browser
+     */
     @MappedMethod(type = "GET/PING")
     public void processPingRequestTest(RequestEntity requestEntity, HttpResponse response) {
         response.headers().set(HttpHeaders.Names.CONTENT_TYPE, getContentType());
