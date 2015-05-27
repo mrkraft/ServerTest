@@ -1,8 +1,15 @@
 ##### Использовано:
 * Серверный framework: Finagle (построенный на основе Netty)
-* База данных (ставится отдельно): Apache Cassandra (DataStax Community Edition)
+* База данных (ставится отдельно): Apache Cassandra (DataStax Community Edition) - (DataStax Java 2.1 for Apache Cassandra)
 
-(DataStax Java 2.1 for Apache Cassandra)
+Формат запроса (JSON):
+```
+{
+  "type": "PING",
+  "userId": "1e7b05a0-0285-48ea-885e-5cc3b56fe05f"
+}
+```
+
 
 ======
 
